@@ -232,7 +232,8 @@ const KEYS=['C','C#','Db','D','D#','Eb','E','F','F#','Gb','G','G#','Ab','A','A#'
 const FLATS=['F','Bb','Eb','Ab','Db','Gb'];
 const DIFF={0:['Easy','e'],7:['Easy','e'],2:['Easy','e'],9:['Easy','e'],4:['Easy','e'],5:['Medium','m'],11:['Hard','h'],1:['Very Hard','v'],3:['Hard','h'],6:['Very Hard','v'],8:['Very Hard','v'],10:['Hard','h']};
 const $=id=>document.getElementById(id);
-const idx=n=>{let i=S.indexOf(n);return i<0?F.indexOf(n):i};
+const ENH={Cb:11,Fb:4,'E#':5,'B#':0};
+const idx=n=>{let i=S.indexOf(n);if(i<0)i=F.indexOf(n);return i<0&&n in ENH?ENH[n]:i};
 const uid=()=>'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const ls=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}};
 const lss=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
@@ -278,7 +279,7 @@ fetch('songs.json',{cache:'no-store'}).then(r=>r.ok?r.json():[]).then(a=>{if(!Ar
 const shapeIdx=()=>((idx(st.key)-st.capo)%12+12)%12;
 const shapeName=()=>{const i=shapeIdx();return (FLATS.includes(F[i])&&DIFF[i][1]!=='e'?F:S)[i]};
 const rank=s=>({e:0,m:1,h:2,v:3}[DIFF[s][1]]);
-const tr=(ch,n,flat)=>ch.replace(/[A-G][#b]?/g,m=>(flat?F:S)[((idx(m)+n)%12+12)%12]);
+const tr=(ch,n,flat)=>n===0?ch:ch.replace(/[A-G][#b]?/g,m=>{const i=idx(m);return i<0?m:(flat?F:S)[((i+n)%12+12)%12]});
 
 function render(){
  closeCP();
@@ -367,8 +368,11 @@ $('del').onclick=()=>deleteSong(curId);
 $('del2').onclick=()=>deleteSong(curId);
 
 /* convert "chords sa ibabaw ng lyrics" -> [chord]lyrics */
-const CH=/^[A-G][#b]?(maj|min|dim|aug|sus|add|m|M)?\d*(sus\d?|add\d+)?(\/[A-G][#b]?)?$/;
-const isCL=l=>{const t=l.trim();return t!==''&&t.split(/\s+/).every(x=>CH.test(x.replace(/[()]/g,'')))};
+const CH=new RegExp('^[A-G][#b]?(?:6\\/9|maj|min|dim|aug|sus|add|alt|M|m|[0-9]|#|b|\\+|-|°|ø|Δ|,|\\(|\\))*(?:\\/[A-G][#b]?)?$');
+const MARK=/^(?:\(?x\d+\)?|\d+x|\||\|\||-|—|\/|N\.?C\.?)$/i; // repeat/bar markers: hindi chord, text lang
+const unwrap=x=>x.replace(/^\((.+)\)$/,'$1'); // (Am) -> Am, pero Cmaj7(9) ay hindi ginagalaw
+const isChord=x=>CH.test(unwrap(x));
+const isCL=l=>{const t=l.trim();if(!t)return false;let c=0;for(const x of t.split(/\s+/)){if(isChord(x))c++;else if(!MARK.test(x))return false}return c>0};
 function convert(txt){
  const L=txt.split('\n'),o=[];
  for(let i=0;i<L.length;i++){const l=L[i],sec=l.match(/^\s*\[([^\]]+)\]\s*$/);
@@ -377,9 +381,9 @@ function convert(txt){
   const nx=L[i+1];
   if(nx!==undefined&&nx.trim()&&!isCL(nx)&&!nx.trim().startsWith('#')&&!nx.includes('[')){
    let y=nx;const m=[...l.matchAll(/\S+/g)];
-   for(let k=m.length-1;k>=0;k--){const p=m[k].index;if(y.length<p)y=y.padEnd(p);y=y.slice(0,p)+'['+m[k][0]+']'+y.slice(p)}
+   for(let k=m.length-1;k>=0;k--){if(!isChord(m[k][0]))continue;const p=m[k].index;if(y.length<p)y=y.padEnd(p);y=y.slice(0,p)+'['+unwrap(m[k][0])+']'+y.slice(p)}
    o.push(y);i++;
-  }else o.push(l.trim().split(/\s+/).map(c=>'['+c+']').join(' '));
+  }else o.push(l.trim().split(/\s+/).map(c=>isChord(c)?'['+unwrap(c)+']':c).join(' '));
  }
  return o.join('\n');
 }

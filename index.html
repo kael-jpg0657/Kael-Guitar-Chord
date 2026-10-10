@@ -44,7 +44,7 @@ button:hover{border-color:var(--mut)}
 .e{background:var(--okbg);color:var(--ok)}.m{background:var(--mdbg);color:var(--md)}.h{background:var(--hdbg);color:var(--hd)}.v{background:var(--vhbg);color:var(--vh)}
 .capo{display:inline-block;background:var(--mdbg);color:var(--md);border:1px solid var(--md);border-radius:9px;padding:5px 12px;font-size:13px}
 .q{flex:1;min-width:140px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--bg)}
-#list{max-height:230px;overflow-y:auto;border:1px solid var(--line);border-radius:10px}
+#list{border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .si{padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;gap:8px;justify-content:space-between}
 .si:last-child{border:0}.si:hover{background:var(--bg)}.si.on{background:var(--act);color:var(--red);font-weight:700}
 .si{align-items:center}.si .t{flex:1;min-width:0}.si span{color:var(--mut);font-weight:400}
@@ -265,7 +265,7 @@ function openSong(id){stopScroll();setPlace(false);curId=id;document.body.classL
 function setKC(){const s=song();s.key=st.key;s.capo=st.capo;persist();render()}
 function renderList(){
  const q=$('q').value.toLowerCase().trim();
- const a=lib.filter(s=>(s.title+' '+s.artist).toLowerCase().includes(q)).sort((x,y)=>x.title.localeCompare(y.title));
+ const a=lib.filter(s=>(s.title+' '+s.artist).toLowerCase().includes(q)).sort((x,y)=>(x.title||'').trim().localeCompare((y.title||'').trim(),undefined,{sensitivity:'base',numeric:true,ignorePunctuation:true}));
  $('cnt').textContent=`Songs (${lib.length})`;
  $('list').innerHTML=!lib.length?'<div class="empty"><div style="font-size:42px">🎸</div><b>Wala ka pang kanta</b><p>Pindutin ang <b>＋ New song</b> para magsimula,<br>o <b>⇪ Import</b> kung may <code>songs.json</code> ka na.</p></div>':a.length?a.map(s=>`<div class="si ${s.id===curId?'on':''}" data-id="${s.id}"><div class="t">${esc(s.title)||'(untitled)'}</div><span>${esc(s.artist)}</span><button class="dx" data-del="${s.id}" title="Delete">🗑</button></div>`).join(''):'<div class="si"><span>Walang nahanap.</span></div>';
  $('list').querySelectorAll('.si[data-id]').forEach(e=>e.onclick=()=>openSong(e.dataset.id));

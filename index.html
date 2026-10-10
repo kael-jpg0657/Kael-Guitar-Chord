@@ -368,11 +368,18 @@ $('del').onclick=()=>deleteSong(curId);
 $('del2').onclick=()=>deleteSong(curId);
 
 /* convert "chords sa ibabaw ng lyrics" -> [chord]lyrics */
-const CH=new RegExp('^[A-G][#b]?(?:6\\/9|maj|min|dim|aug|sus|add|alt|M|m|[0-9]|#|b|\\+|-|°|ø|Δ|,|\\(|\\))*(?:\\/[A-G][#b]?)?$');
+const CH=new RegExp('^[A-G][#b]?(?:6\\/9|maj|min|dim|aug|sus|add|Maj|Min|Dim|Aug|Sus|Add|alt|M|m|[0-9]|#|b|\\+|-|°|ø|Δ|,|\\(|\\))*(?:\\/[A-G][#b]?)?$');
 const MARK=/^(?:\(?x\d+\)?|\d+x|\||\|\||-|—|\/|N\.?C\.?)$/i; // repeat/bar markers: hindi chord, text lang
 const unwrap=x=>x.replace(/^\((.+)\)$/,'$1'); // (Am) -> Am, pero Cmaj7(9) ay hindi ginagalaw
-const isChord=x=>CH.test(unwrap(x));
-const isCL=l=>{const t=l.trim();if(!t)return false;let c=0;for(const x of t.split(/\s+/)){if(isChord(x))c++;else if(!MARK.test(x))return false}return c>0};
+const fixTok=x=>unwrap(x).replace(/♭/g,'b').replace(/♯/g,'#').replace(/[,;]+$/,''); // ♭ ♯ at kuwit sa dulo
+const isChord=x=>CH.test(fixTok(x));
+const isLabel=x=>/^[A-Za-z0-9]+:$/.test(x); // "Intro:" "Chorus:" - text lang
+// kakaibang chord na hindi pa kilala (hal. Bm7-5, Gmaj13): chord pa rin kung nasa linyang puro chords
+const chordish=x=>{const t=fixTok(x);return /^[A-G][A-Za-z0-9#b+\-°øΔ()\/]*$/.test(t)&&t.length<=10&&(/[0-9#+°øΔ()\/]|-/.test(t)||t.length<=3)};
+const asChord=x=>isChord(x)||(!MARK.test(x)&&!isLabel(x)&&chordish(x));
+const isCL=l=>{const t=l.trim();if(!t)return false;let c=0,u=0;
+ for(const x of t.split(/\s+/)){if(isChord(x))c++;else if(MARK.test(x)||isLabel(x));else if(chordish(x))u++;else return false}
+ return c>0&&(u===0||(c>=2&&u<=c/2))};
 function convert(txt){
  const L=txt.split('\n'),o=[];
  for(let i=0;i<L.length;i++){const l=L[i],sec=l.match(/^\s*\[([^\]]+)\]\s*$/);
@@ -381,9 +388,9 @@ function convert(txt){
   const nx=L[i+1];
   if(nx!==undefined&&nx.trim()&&!isCL(nx)&&!nx.trim().startsWith('#')&&!nx.includes('[')){
    let y=nx;const m=[...l.matchAll(/\S+/g)];
-   for(let k=m.length-1;k>=0;k--){if(!isChord(m[k][0]))continue;const p=m[k].index;if(y.length<p)y=y.padEnd(p);y=y.slice(0,p)+'['+unwrap(m[k][0])+']'+y.slice(p)}
+   for(let k=m.length-1;k>=0;k--){if(!asChord(m[k][0]))continue;const p=m[k].index;if(y.length<p)y=y.padEnd(p);y=y.slice(0,p)+'['+fixTok(m[k][0])+']'+y.slice(p)}
    o.push(y);i++;
-  }else o.push(l.trim().split(/\s+/).map(c=>isChord(c)?'['+unwrap(c)+']':c).join(' '));
+  }else o.push(l.trim().split(/\s+/).map(c=>asChord(c)?'['+fixTok(c)+']':c).join(' '));
  }
  return o.join('\n');
 }

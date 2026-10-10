@@ -167,6 +167,13 @@ body.fs #pbar,body.fs .lgb,body.fs #place{display:none!important}
 .tbtools input{text-align:center}
 body.home #tabs{display:none!important}
 body.fs #tabs,body.fs .tbx-e{display:none!important}
+.cd{position:relative}
+.cdx{position:absolute;top:2px;right:2px;border:0;background:none;color:var(--mut);font-size:13px;line-height:1;padding:3px 6px;cursor:pointer;border-radius:50%}
+.cdx:hover,.tdel:hover{color:var(--red)}
+.tchip-g{display:inline-flex}
+.tchip-g .tchip:first-child{border-radius:var(--brad,9px) 0 0 var(--brad,9px)}
+.tchip-g .tdel{border-radius:0 var(--brad,9px) var(--brad,9px) 0;border-left:0;padding:5px 9px;color:var(--mut)}
+body.fs .cdx,body.fs .tbx-d{display:none!important}
 </style></head><body class="home"><div class="wrap">
 <h1><span class="a" id="artist"></span> - <span id="song"></span> - Chord</h1>
 
@@ -310,7 +317,7 @@ function render(){
  $('chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{st.capo=+b.dataset.c;setKC()});
  $('capo').value=st.capo;
  $('capoTag').textContent=st.capo?`♫ Capo on fret ${st.capo} · ${shapeName()} shapes`:`♫ No capo · ${shapeName()}`;
- renderLegend(songChords(s.src,n,flat),s);renderTabs(s);
+ renderLegend(songChordMap(s.src,n,flat),s);renderTabs(s);
  $('song').textContent=s.title;$('artist').textContent=s.artist;document.title=(s.title||'Chord')+' - Chord';
 }
 
@@ -450,17 +457,25 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('ov').classList.c
 /* ---------- legend ---------- */
 function songChords(src,n,flat){const seen=[],set=new Set();
  convert(src).split('\n').forEach(l=>{if(l.startsWith('#'))return;(l.match(/\[[^\]]+\]/g)||[]).forEach(b=>{const c=b.slice(1,-1);if(!/^[A-G]/.test(c))return;const d=tr(c,n,flat);if(!set.has(d)){set.add(d);seen.push(d)}})});return seen}
+function songChordMap(src,n,flat){const seen=[],set=new Set();
+ convert(src).split('\n').forEach(l=>{if(l.startsWith('#'))return;(l.match(/\[[^\]]+\]/g)||[]).forEach(b=>{const c=b.slice(1,-1);if(!/^[A-G]/.test(c))return;const d=tr(c,n,flat);if(!set.has(d)){set.add(d);seen.push({d,o:c})}})});return seen}
+let LGITEMS=[];
+function legendDel(s,nm){const it=LGITEMS.find(i=>i.d===nm);if(it)s.hide=[...new Set([...(s.hide||[]),it.o])];
+ s.extra=(s.extra||[]).filter(x=>x!==nm);if(s.legend)delete s.legend[nm];persist();render();pop('Naalis sa legend')}
 function rawChords(src){const seen=[];(src||'').split('\n').forEach(l=>{if(l.startsWith('#'))return;(l.match(/\[[^\]]+\]/g)||[]).forEach(b=>{const c=b.slice(1,-1);if(/^[A-G]/.test(c)&&!seen.includes(c))seen.push(c)})});return seen}
 function fingerOf(s,name){const cu=s&&s.legend&&s.legend[name],pf=cu?parseFret(cu):null;return pf?{frets:pf,approx:false,custom:true}:fingerGen(name)}
-function renderLegend(names,s){
+function renderLegend(items,s){
+ LGITEMS=items;const hid=s.hide||[],names=items.filter(i=>!hid.includes(i.o)).map(i=>i.d);
  const open=ls('chordapp.legendOpen',true),all=[...names,...(s.extra||[]).filter(x=>!names.includes(x))];
  const cards=all.map(nm=>{const g=fingerOf(s,nm);
-  return `<div class="cd ${g&&g.custom?'custom':''}" data-n="${esc(nm)}">${g?chordSVG(g.frets):'<div class="nofin">?</div>'}<b>${esc(nm)}${g&&g.custom?' ★':''}${g&&g.approx?' ~':''}</b><small>${g?fretStr(g.frets):'—'}</small></div>`}).join('');
+  return `<div class="cd ${g&&g.custom?'custom':''}" data-n="${esc(nm)}"><button class="cdx" data-x="${esc(nm)}" title="Alisin sa legend" aria-label="Alisin">✕</button>${g?chordSVG(g.frets):'<div class="nofin">?</div>'}<b>${esc(nm)}${g&&g.custom?' ★':''}${g&&g.approx?' ~':''}</b><small>${g?fretStr(g.frets):'—'}</small></div>`}).join('');
  $('legend').innerHTML=`<div class="lg-head"><b>🎸 Chord Legend</b><span class="mut">${all.length} chord${all.length==1?'':'s'}</span><span class="sp"></span><button class="lgb" id="lgAdd">＋ Chord</button><button class="lgb" id="lgTog">${open?'Itago':'Ipakita'}</button></div>`+
-  (open?(all.length?`<div class="lg-grid">${cards}</div><div class="hint">I-tap ang chord para ilagay ang eksaktong fingering. ★ = custom mo · ~ = tantiya lang ng app.</div>`:'<div class="hint">Wala pang chords. Gamitin ang 🎯 Place chords o ＋ Chord.</div>'):'');
+  (open?(all.length?`<div class="lg-grid">${cards}</div><div class="hint">I-tap ang chord para ilagay ang eksaktong fingering. ✕ = alisin sa legend. ★ = custom mo · ~ = tantiya lang ng app.</div>`+(hid.length?`<button class="lgb" id="lgRest">↺ Ibalik ang na-alis (${hid.length})</button>`:''):'<div class="hint">Wala pang chords sa legend.'+(hid.length?'':' Gamitin ang 🎯 Place chords o ＋ Chord.')+'</div>'+(hid.length?`<button class="lgb" id="lgRest">↺ Ibalik ang na-alis (${hid.length})</button>`:'')):'');
  $('lgTog').onclick=()=>{lss('chordapp.legendOpen',!open);render()};
  $('lgAdd').onclick=()=>openLegend('',true);
- $('legend').querySelectorAll('.cd').forEach(e=>e.onclick=()=>openLegend(e.dataset.n,false))}
+ $('legend').querySelectorAll('.cd').forEach(e=>e.onclick=()=>openLegend(e.dataset.n,false));
+ $('legend').querySelectorAll('.cdx').forEach(b=>b.onclick=ev=>{ev.stopPropagation();if(confirm('Alisin ang '+b.dataset.x+' sa legend?'))legendDel(s,b.dataset.x)});
+ if($('lgRest'))$('lgRest').onclick=()=>{s.hide=[];persist();render();pop('Naibalik')}}
 function openLegend(name,isNew){
  const s=song(),cu=(!isNew&&s.legend&&s.legend[name])||'';
  ov(`<b style="font-size:17px">${isNew?'Magdagdag ng chord':'Fingering: '+esc(name)}</b>
@@ -468,14 +483,14 @@ function openLegend(name,isNew){
  <div class="lgprev" id="lgPrev"></div>
  <input id="lgF" class="inp" value="${esc(cu)}" placeholder="Frets: hal. x32010 o 8-10-10-9-8-8" autocapitalize="off" autocomplete="off" spellcheck="false">
  <div class="hint">6 na string: pinakamababang E → pinakamataas na e. <b>x</b> = hindi tutugtugin · <b>0</b> = open. Kung may fret na higit 9, lagyan ng <b>-</b> (hal. 8-10-10-9-8-8). Iwanang blangko = default ng app.</div>
- <div class="bar"><button class="red" id="lgS">✓ I-save</button><button id="lgR">↺ Default</button>${!isNew&&(s.extra||[]).includes(name)?'<button id="lgX">🗑 Alisin sa legend</button>':''}<span class="sp"></span><button id="lgC">Isara</button></div>`);
+ <div class="bar"><button class="red" id="lgS">✓ I-save</button><button id="lgR">↺ Default</button>${!isNew?'<button id="lgX">🗑 Alisin sa legend</button>':''}<span class="sp"></span><button id="lgC">Isara</button></div>`);
  const nm=()=>isNew?$('lgN').value.trim():name;
  const prev=()=>{const v=$('lgF').value.trim(),pf=parseFret(v),n=nm();let g=pf?{frets:pf}:(n?fingerGen(n):null);
   $('lgPrev').innerHTML=(g?chordSVG(g.frets):'<span style="color:var(--mut)">Walang preview</span>')+`<div><b>${esc(n)}</b><div class="hint" style="margin:2px 0 0;${v&&!pf?'color:var(--red)':''}">${v&&!pf?'Hindi valid — kailangan ng 6 na string':(g?fretStr(g.frets):'')}</div></div>`};
  $('lgF').oninput=prev;if(isNew)$('lgN').oninput=prev;prev();
  $('lgC').onclick=closeOv;
  $('lgR').onclick=()=>{if(s.legend)delete s.legend[nm()];persist();render();closeOv()};
- if($('lgX'))$('lgX').onclick=()=>{s.extra=(s.extra||[]).filter(x=>x!==name);if(s.legend)delete s.legend[name];persist();render();closeOv()};
+ if($('lgX'))$('lgX').onclick=()=>{legendDel(s,name);closeOv()};
  $('lgS').onclick=()=>{const n=nm(),v=$('lgF').value.trim();
   if(!n||!/^[A-G]/.test(n)||!CHRE.test(n)){pop('Maglagay ng valid na chord name');return}
   const pf=parseFret(v);if(v&&!pf){pop('Invalid ang fingering');return}
@@ -637,19 +652,21 @@ const secLabel=x=>x==='*top'?'Pinakataas':x;
 function sectionNames(s){const o=[];convert(s.src||'').split('\n').forEach(l=>{if(l.startsWith('#')){const n=l.slice(1).trim();if(n&&!o.some(x=>secKey(x)===secKey(n)))o.push(n)}});return o}
 function tabLineHTML(l){const t=esc(l);
  return(/^\s*[A-Ga-g]?[#b]?\s*\|/.test(l)||/-{3,}/.test(l))?t.replace(/(\d+)|(-+)/g,(m,a,b)=>a?`<span class="tf">${a}</span>`:`<span class="td">${b}</span>`):t}
-function tabBlockHTML(t){return `<div class="tabbox"><div class="tabhd"><span>🎼 Tab${t.label?' · '+esc(t.label):''}</span><span class="sp"></span><button class="tbx-e" data-t="${t.id}">✎ Edit</button></div><pre class="tabpre">${String(t.text||'').replace(/\s+$/,'').split('\n').map(tabLineHTML).join('\n')}</pre></div>`}
+function tabBlockHTML(t){return `<div class="tabbox"><div class="tabhd"><span>🎼 Tab${t.label?' · '+esc(t.label):''}</span><span class="sp"></span><button class="tbx-e" data-t="${t.id}">✎ Edit</button><button class="tbx-d" data-t="${t.id}" title="Delete">🗑</button></div><pre class="tabpre">${String(t.text||'').replace(/\s+$/,'').split('\n').map(tabLineHTML).join('\n')}</pre></div>`}
 function tabsHTML(s,sec,used){if(!tabOn()||!s.tabs)return'';let h='';
  s.tabs.forEach(t=>{if(secKey(t.section)===secKey(sec)){h+=tabBlockHTML(t);if(used)used.add(t.id)}});return h}
 function orphanHTML(s,used){if(!tabOn()||!s.tabs)return'';
  return s.tabs.filter(t=>!used.has(t.id)).map(t=>`<div class="sec">${esc(secLabel(t.section)||'Tab')} <span style="text-transform:none;letter-spacing:0">(walang ganitong section sa kanta)</span></div>`+tabBlockHTML(t)).join('')}
 function renderTabs(s){const open=tabOn(),T=s.tabs||[],heads=sectionNames(s).map(secKey);
  const chips=T.map(t=>{const ok=t.section==='*top'||heads.includes(secKey(t.section));
-  return `<button class="tchip ${ok?'':'warn'}" data-t="${t.id}">${ok?'':'⚠ '}${esc(secLabel(t.section))}${t.label?' · '+esc(t.label):''} ✎</button>`}).join('');
+  return `<span class="tchip-g"><button class="tchip ${ok?'':'warn'}" data-t="${t.id}">${ok?'':'⚠ '}${esc(secLabel(t.section))}${t.label?' · '+esc(t.label):''} ✎</button><button class="tchip tdel" data-d="${t.id}" title="Delete" aria-label="Delete tab">✕</button></span>`}).join('');
  $('tabs').innerHTML=`<div class="lg-head"><b>🎼 Guitar Tabs</b><span class="mut">${T.length} tab${T.length==1?'':'s'}</span><span class="sp"></span><button class="lgb" id="tbAdd">＋ Tab</button><button class="lgb" id="tbTog">${open?'Itago':'Ipakita'}</button></div>`+
   (open?(T.length?`<div class="tchips">${chips}</div><div class="hint">Lalabas ang tab sa ilalim ng section na pinili mo. ⚠ = walang ganoong section sa kanta. Hindi nagta-transpose ang tabs.</div>`:'<div class="hint">Wala pang tab. Pindutin ang ＋ Tab para maglagay sa Intro, Verse, Chorus, atbp.</div>'):'');
  $('tbTog').onclick=()=>{lss('chordapp.tabOpen',!open);render()};
  $('tbAdd').onclick=()=>openTab(null);
- $('tabs').querySelectorAll('.tchip').forEach(b=>b.onclick=()=>openTab(b.dataset.t))}
+ $('tabs').querySelectorAll('.tchip[data-t]').forEach(b=>b.onclick=()=>openTab(b.dataset.t));
+ $('tabs').querySelectorAll('.tdel').forEach(b=>b.onclick=()=>delTab(b.dataset.d))}
+function delTab(id){const s=song();if(!s||!confirm('I-delete ang tab na ito?'))return;s.tabs=(s.tabs||[]).filter(t=>t.id!==id);persist();render();pop('Na-delete ang tab')}
 function openTab(id){const s=song();s.tabs=s.tabs||[];const ex=id&&s.tabs.find(t=>t.id===id),heads=sectionNames(s),hist=[];
  const cur=ex?ex.section:(heads.find(h=>/intro/i.test(h))||heads[0]||'Intro');
  const opts=[['*top','⬆ Pinakataas ng kanta'],...heads.map(h=>[h,h]),...TPRE.filter(p=>!heads.some(h=>secKey(h)===secKey(p))).map(p=>[p,p+' (wala pa sa kanta)'])];
@@ -695,7 +712,7 @@ function openTab(id){const s=song();s.tabs=s.tabs||[];const ex=id&&s.tabs.find(t
   if(ex){ex.section=sec;ex.label=label;ex.text=text}else s.tabs.push({id:uid(),section:sec,label,text});
   persist();render();closeOv();pop('Na-save ang tab')};
  prev()}
-$('sheet').addEventListener('click',e=>{const b=e.target.closest('.tbx-e');if(b)openTab(b.dataset.t)});
+$('sheet').addEventListener('click',e=>{const b=e.target.closest('.tbx-e');if(b){openTab(b.dataset.t);return}const x=e.target.closest('.tbx-d');if(x)delTab(x.dataset.t)});
 
 const THEMES=[['light','Classic Light','light','#f4f5f7','#ffffff','#111827','#b91c1c','#e5e7eb',0],['dark','Classic Dark','dark','#0f1115','#181b22','#f3f4f6','#f87171','#2a2f3a',0],
 ['midnight','Midnight Gold','dark','#0b1020','#121a30','#f4efe1','#d4af37','#26314f',1],['champagne','Champagne','light','#f6efe2','#fffaf1','#2a2118','#a1741f','#e6d9c3',1],

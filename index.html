@@ -504,10 +504,17 @@ const CHRE=/^([A-G][#b]?)([^\/]*)(?:\/([A-G][#b]?))?$/;
 function barreGen(root,q){let best=null;
  for(const [T,off] of [[ETPL,4],[ATPL,9]]){if(!T[q])continue;const f=((idx(root)-off)%12+12)%12;if(!best||f<best.f)best={f,t:T[q]}}
  return best&&best.t.map(x=>x<0?-1:x+best.f)}
-function parseFret(str){if(!str)return null;let s=String(str).trim().toLowerCase();
- s=/[\s,\-]/.test(s)?s.split(/[\s,\-]+/).filter(Boolean):s.split('');
- if(s.length!==6)return null;const r=s.map(x=>x==='x'?-1:/^\d+$/.test(x)?+x:NaN);
- return r.some(v=>isNaN(v)||v>24)?null:r}
+function splitCompact(s){ // "x9xx10x" -> x,9,x,x,10,x (tinatanggap ang 2-digit fret kahit walang '-')
+ const go=(i,acc)=>{if(acc.length===6)return i===s.length?acc:null;if(i>=s.length)return null;
+  const ch=s[i];if(ch==='x')return go(i+1,[...acc,-1]);if(!/\d/.test(ch))return null;
+  const two=s.slice(i,i+2);
+  return go(i+1,[...acc,+ch])||(/^(1\d|2[0-4])$/.test(two)?go(i+2,[...acc,+two]):null)};
+ return go(0,[])}
+function parseFret(str){if(!str)return null;const s=String(str).trim().toLowerCase();let r;
+ if(/[\s,\-]/.test(s))r=s.split(/[\s,\-]+/).filter(Boolean).map(x=>x==='x'?-1:/^\d+$/.test(x)?+x:NaN);
+ else if(s.length===6)r=s.split('').map(x=>x==='x'?-1:/^\d$/.test(x)?+x:NaN);
+ else r=splitCompact(s);
+ return r&&r.length===6&&!r.some(v=>isNaN(v)||v>24)?r:null}
 const fretStr=f=>f.map(x=>x<0?'x':x).join(f.some(x=>x>9)?'-':'');
 function fingerGen(name){const m=String(name).trim().match(CHRE);if(!m)return null;
  const root=m[1],q0=m[2].trim(),bass=m[3];let q,approx=false;
@@ -571,8 +578,8 @@ function openLegend(name,isNew){
  ov(`<b style="font-size:17px">${isNew?'Magdagdag ng chord':'Fingering: '+esc(name)}</b>
  ${isNew?'<input id="lgN" class="inp" placeholder="Chord name (hal. Gsus4, D/F#)" autocapitalize="characters" autocomplete="off">':''}
  <div class="lgprev" id="lgPrev"></div>
- <input id="lgF" class="inp" value="${esc(cu)}" placeholder="Frets: hal. x32010 o 8-10-10-9-8-8" autocapitalize="off" autocomplete="off" spellcheck="false">
- <div class="hint">6 na string: pinakamababang E → pinakamataas na e. <b>x</b> = hindi tutugtugin · <b>0</b> = open. Kung may fret na higit 9, lagyan ng <b>-</b> (hal. 8-10-10-9-8-8). Iwanang blangko = default ng app.</div>
+ <input id="lgF" class="inp" value="${esc(cu)}" placeholder="Frets: hal. x32010 o x9xx10x" autocapitalize="off" autocomplete="off" spellcheck="false">
+ <div class="hint">6 na string: pinakamababang E → pinakamataas na e. <b>x</b> = hindi tutugtugin · <b>0</b> = open. Puwedeng tuloy-tuloy (hal. <b>x9xx10x</b>) o may <b>-</b> sa pagitan (hal. x-9-x-x-10-x o 8-10-10-9-8-8). Iwanang blangko = default ng app.</div>
  <div class="bar"><button class="red" id="lgS">✓ I-save</button><button id="lgR">↺ Default</button>${!isNew?'<button id="lgX">🗑 Alisin sa legend</button>':''}<span class="sp"></span><button id="lgC">Isara</button></div>`);
  const nm=()=>isNew?$('lgN').value.trim():name;
  const prev=()=>{const v=$('lgF').value.trim(),pf=parseFret(v),n=nm();let g=pf?{frets:pf}:(n?fingerGen(n):null);

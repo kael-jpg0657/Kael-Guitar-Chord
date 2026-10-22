@@ -174,6 +174,21 @@ body.fs #tabs,body.fs .tbx-e{display:none!important}
 .tchip-g .tchip:first-child{border-radius:var(--brad,9px) 0 0 var(--brad,9px)}
 .tchip-g .tdel{border-radius:0 var(--brad,9px) var(--brad,9px) 0;border-left:0;padding:5px 9px;color:var(--mut)}
 body.fs .cdx,body.fs .tbx-d{display:none!important}
+/* practice progress */
+.pbar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;flex:1}
+.pbar i{display:block;height:100%;border-radius:99px;background:var(--red);transition:width .35s}
+.pbar.big{height:14px;flex:none;margin:10px 0}
+.pbar.mini{height:6px}
+.pbar.full i{background:linear-gradient(90deg,#16a34a,#4ade80)}
+.si{flex-wrap:wrap}
+.si .prl{flex-basis:100%;display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:400;color:var(--mut)}
+.si .prl b{font-weight:700;color:var(--mut);min-width:3.2em;text-align:right}
+.px{width:28px;height:28px;padding:0;border-radius:50%;font-size:14px;line-height:1;color:var(--red);border-color:var(--red)}
+.px:active{background:var(--red);color:var(--card)}
+.prrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.prrow .mut{color:var(--mut);font-size:13px}
+#prac .lgb:disabled{opacity:.4}
+body.home #prac,body.fs #prac{display:none!important}
 </style></head><body class="home"><div class="wrap">
 <h1><span class="a" id="artist"></span> - <span id="song"></span> - Chord</h1>
 
@@ -207,7 +222,7 @@ body.fs .cdx,body.fs .tbx-d{display:none!important}
 <div class="card" id="lib">
  <div class="bar"><b id="cnt">Songs</b><input class="q" id="q" placeholder="Search song or artist…">
   <button class="tgl" title="Day / Night">🌙</button><button class="thm" title="Themes">🎨</button>
-  <button id="new" class="red">＋ New song</button><button id="imp">⇪ Import</button><button id="exp">⇩ Export</button>
+  <button id="new" class="red">＋ New song</button><button id="imp">⇪ Import</button><button id="exp">⇩ Export</button><button id="dedupe" title="Alisin ang magkaparehong kanta">🧹 Duplicates</button>
   <input type="file" id="file" accept=".json,application/json" hidden></div>
  <div id="list"></div>
 </div>
@@ -220,8 +235,10 @@ body.fs .cdx,body.fs .tbx-d{display:none!important}
   <label>Original key <select id="ok"></select></label>
  </div>
  <textarea id="src" spellcheck="false" placeholder="Halimbawa:&#10;# Verse&#10;[G]Isulat ang lyrics [Em]dito&#10;[C]May chords sa [brackets] [D]bago ang salita&#10;&#10;O i-paste ang chords sa ibabaw ng lyrics — awtomatikong kino-convert."></textarea>
- <div class="bar" style="margin-top:8px"><button id="done" class="red">✓ Done</button><button id="conv">⇄ Convert chords-over-lyrics</button><span class="sp"></span><button id="del">🗑 Delete song</button></div>
+ <div class="bar" style="margin-top:8px"><button id="done" class="red">✓ Done</button><button id="eundo" title="Undo (Ctrl+Z)">↶ Undo</button><button id="eredo" title="Redo (Ctrl+Y)">↷ Redo</button><button id="conv">⇄ Convert chords-over-lyrics</button><button id="toOver" title="Ilagay ulit ang chords sa ibabaw ng lyrics (hindi sa loob ng [ ])">⇅ Chords above lyrics</button><button id="cundo" style="display:none" title="Ibalik ang lyrics bago ang huling Convert">↩ Ibalik ang dati (bago mag-Convert)</button><span class="sp"></span><button id="del">🗑 Delete song</button></div>
 </div>
+
+<div class="card" id="prac"></div>
 
 <div class="card legend" id="legend"></div>
 
@@ -231,7 +248,7 @@ body.fs .cdx,body.fs .tbx-d{display:none!important}
 
 <div class="card sheet" id="sheet"></div>
 <p class="hint">I-tap ang chord para makita ang pangalan. Pumili ng key, tapos capo o difficulty chip — mag-uupdate ang chords na tutugtugin mo.</p>
-</div><div class="pop" id="pop"></div><div class="cp" id="cp"><div class="cp-t" id="cpT"></div><div class="cp-d" id="cpD"></div><div class="cp-n"><button id="cpP" aria-label="Previous">‹</button><span id="cpC"></span><button id="cpN" aria-label="Next">›</button></div><button class="cp-sv" id="cpS">★ Gamitin sa legend</button><div class="cp-pl" id="cpPl"><span>▶ Play</span></div></div><div class="ov" id="ov"><div class="ovc" id="ovc"></div></div>
+</div><div class="pop" id="pop"></div><div class="cp" id="cp"><div class="cp-t" id="cpT"></div><div class="cp-d" id="cpD"></div><div class="cp-n"><button id="cpP" aria-label="Previous">‹</button><span id="cpC"></span><button id="cpN" aria-label="Next">›</button></div><button class="cp-sv" id="cpS">★ Gamitin sa legend</button><div class="cp-pl" id="cpPl"><span>▶ Play</span></div></div><div class="ov" id="cf" style="z-index:40;align-items:center"><div class="ovc" style="border-radius:16px;max-width:380px;width:calc(100% - 32px);padding-bottom:16px"><div id="cfm" style="white-space:pre-line;margin-bottom:14px;line-height:1.45"></div><div class="bar"><button class="red" id="cfy">OK</button><span class="sp"></span><button id="cfn">Huwag</button></div></div></div><div class="ov" id="ov"><div class="ovc" id="ovc"></div></div>
 
 <script>
 const S=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'],F=['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -263,24 +280,66 @@ let st={key:'C',capo:0,size:16,font:'mono'};
 function goHome(){stopScroll();exitFS();openEdit(false);setPlace(false);curId=null;document.body.classList.add('home');renderList();window.scrollTo(0,0)}
 function openSong(id){stopScroll();setPlace(false);curId=id;document.body.classList.remove('home');const s=song();st.key=s.key||s.orig;st.capo=s.capo||0;persist();render();renderList();window.scrollTo(0,0)}
 function setKC(){const s=song();s.key=st.key;s.capo=st.capo;persist();render()}
+/* ---------- practice progress (30 practice = 100%) ---------- */
+const GOAL=30;
+const prN=s=>(s.pr&&s.pr.n)||0,prPct=s=>Math.min(100,Math.round(prN(s)/GOAL*100));
+function prLast(s){const L=s.pr&&s.pr.log;if(!L||!L.length)return'Wala pang practice';
+ const day=t=>{const d=new Date(t);return new Date(d.getFullYear(),d.getMonth(),d.getDate())},last=L[L.length-1],days=Math.round((day(Date.now())-day(last))/864e5);
+ if(days<=0){const c=L.filter(t=>day(t).getTime()===day(Date.now()).getTime()).length;return 'Ngayon: '+c+'× nag-practice'}
+ return 'Huling practice: '+(days===1?'kahapon':new Date(last).toLocaleDateString('en-PH',{month:'short',day:'numeric'}))}
+function practiced(s){s.pr=s.pr||{n:0,log:[]};s.pr.n++;s.pr.log.push(Date.now());if(s.pr.log.length>200)s.pr.log.shift();persist();
+ if(s.pr.n===GOAL)pop('🎉 100%! Na-master mo na ang '+(s.title||'kantang ito')+'!');else pop('✓ Practice '+Math.min(s.pr.n,GOAL)+'/'+GOAL+(s.pr.n>GOAL?' (bonus)':''));
+ renderList();if(curId===s.id)renderPrac(s)}
+function renderPrac(s){const n=prN(s),p=prPct(s),full=n>=GOAL;
+ $('prac').innerHTML=`<div class="lg-head"><b>🏋️ Practice</b><span class="mut">${Math.min(n,GOAL)} / ${GOAL} · ${p}%${n>GOAL?' · '+n+' total':''}</span><span class="sp"></span><button class="lgb" id="prUndo" ${n?'':'disabled'} title="Alisin ang huling check">↶ Undo</button><button class="lgb" id="prReset" ${n?'':'disabled'} title="Ibalik sa 0">↺ Reset</button></div><div class="pbar big ${full?'full':''}"><i style="width:${p}%"></i></div><div class="prrow"><button class="red" id="prCheck">✓ Nag-practice ako</button><span class="mut">${full?'🎉 100% — master na ang kantang ito!':prLast(s)}</span></div>`;
+ $('prCheck').onclick=()=>practiced(s);
+ $('prUndo').onclick=()=>{if(!n)return;s.pr.n--;s.pr.log.pop();persist();renderPrac(s);renderList();pop('Na-undo ang huling practice')};
+ $('prReset').onclick=()=>{if(!prN(s))return;askYes('I-reset ang practice progress ng "'+(s.title||'kantang ito')+'" sa 0%?','↺ Oo, i-reset',()=>{s.pr={n:0,log:[]};persist();renderPrac(s);renderList();pop('Na-reset sa 0%')})}}
 function renderList(){
  const q=$('q').value.toLowerCase().trim();
  const a=lib.filter(s=>(s.title+' '+s.artist).toLowerCase().includes(q)).sort((x,y)=>(x.title||'').trim().localeCompare((y.title||'').trim(),undefined,{sensitivity:'base',numeric:true,ignorePunctuation:true}));
  $('cnt').textContent=`Songs (${lib.length})`;
- $('list').innerHTML=!lib.length?'<div class="empty"><div style="font-size:42px">🎸</div><b>Wala ka pang kanta</b><p>Pindutin ang <b>＋ New song</b> para magsimula,<br>o <b>⇪ Import</b> kung may <code>songs.json</code> ka na.</p></div>':a.length?a.map(s=>`<div class="si ${s.id===curId?'on':''}" data-id="${s.id}"><div class="t">${esc(s.title)||'(untitled)'}</div><span>${esc(s.artist)}</span><button class="dx" data-del="${s.id}" title="Delete">🗑</button></div>`).join(''):'<div class="si"><span>Walang nahanap.</span></div>';
+ $('list').innerHTML=!lib.length?'<div class="empty"><div style="font-size:42px">🎸</div><b>Wala ka pang kanta</b><p>Pindutin ang <b>＋ New song</b> para magsimula,<br>o <b>⇪ Import</b> kung may <code>songs.json</code> ka na.</p></div>':a.length?a.map(s=>`<div class="si ${s.id===curId?'on':''}" data-id="${s.id}"><div class="t">${esc(s.title)||'(untitled)'}</div><span>${esc(s.artist)}</span><button class="px" data-px="${s.id}" title="Nag-practice ako ✓">✓</button><button class="dx" data-del="${s.id}" title="Delete">🗑</button><div class="prl"><div class="pbar mini ${prN(s)>=GOAL?'full':''}"><i style="width:${prPct(s)}%"></i></div><b>${prPct(s)}%</b></div></div>`).join(''):'<div class="si"><span>Walang nahanap.</span></div>';
  $('list').querySelectorAll('.si[data-id]').forEach(e=>e.onclick=()=>openSong(e.dataset.id));
  $('list').querySelectorAll('.dx').forEach(b=>b.onclick=ev=>{ev.stopPropagation();deleteSong(b.dataset.del)});
+ $('list').querySelectorAll('.px').forEach(b=>b.onclick=ev=>{ev.stopPropagation();const s=lib.find(x=>x.id===b.dataset.px);if(s)practiced(s)});
 }
 $('q').oninput=renderList;
 $('new').onclick=()=>{const s={id:uid(),title:'Untitled song',artist:'',orig:'C',src:''};lib.push(s);$('q').value='';openSong(s.id);openEdit(true)};
-$('exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(lib,null,1)],{type:'application/json'}));a.download='songs.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+$('exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(lib.map(s=>{const{bak,...r}=s;return r}),null,1)],{type:'application/json'}));a.download='songs.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
 $('imp').onclick=()=>$('file').click();
-$('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{let a=JSON.parse(r.result);if(!Array.isArray(a))a=[a];let n=0;
- a.forEach(s=>{if(s&&s.src){if(!s.id||lib.some(x=>x.id===s.id))s.id=uid();s.title=s.title||'Untitled';s.artist=s.artist||'';s.orig=s.orig||'C';lib.push(s);n++}});
- persist();renderList();pop(n+' song(s) na-import')}catch(err){pop('Invalid JSON file')}};r.readAsText(f);e.target.value=''};
+/* ---------- duplicate-proof import ---------- */
+const nkey=s=>{const t=String(s.title||'').trim().toLowerCase();if(!t||/^untitled( song)?$/.test(t))return'';
+ return(t+'|'+String(s.artist||'').trim().toLowerCase()).normalize('NFKD').replace(/[^\p{L}\p{N}|]+/gu,'')}; // walang pakialam sa laki/liit ng letra at punctuation
+const normT=t=>String(t||'').normalize('NFKD').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'');
+const sigOf=x=>JSON.stringify([normT(x.title),normT(x.artist),x.orig,x.src,x.tabs||[],x.legend||{},x.extra||[],x.hide||[]]);
+function findDup(s){return lib.find(x=>x.id===s.id)||lib.find(x=>nkey(x)&&nkey(x)===nkey(s))||(nkey(s)?null:lib.find(x=>x.src===s.src))||null}
+const richness=s=>String(s.src||'').length+60*(s.tabs||[]).length+25*Object.keys(s.legend||{}).length+40*prN(s);
+function copyContent(to,from){const sameName=nkey(to)&&nkey(to)===nkey(from); // kung pareho lang ang pangalan (iba lang sa letra/punctuation), huwag galawin ang title/artist
+ ['title','artist','orig','src','tabs','legend','extra','hide'].forEach(k=>{if(sameName&&(k==='title'||k==='artist'))return;if(from[k]!==undefined)to[k]=JSON.parse(JSON.stringify(from[k]));else delete to[k]})}
+$('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{let a=JSON.parse(r.result);if(!Array.isArray(a))a=[a];
+ let added=0,skipped=0,updated=0;const fresh=new Set(),conflicts=[];
+ a.forEach(s=>{if(!s||!s.src)return;s.title=s.title||'Untitled';s.artist=s.artist||'';s.orig=s.orig||'C';
+  const ex=findDup(s);
+  if(!ex){if(!s.id)s.id=uid();lib.push(s);fresh.add(s.id);added++}
+  else if(fresh.has(ex.id)||sigOf(ex)===sigOf(s))skipped++;
+  else conflicts.push([ex,s])});
+ persist();renderList();pop(added+' bago'+(skipped?' · '+skipped+' duplicate na-skip':''));
+ if(conflicts.length){const names=conflicts.slice(0,6).map(c=>'• '+(c[0].title||'Untitled')).join('\n')+(conflicts.length>6?'\n• …':'');
+  askYes('May '+conflicts.length+' kanta na nandito na pero iba ang laman:\n'+names+'\n\nI-update ng imported na bersyon?','Oo, i-update',()=>{conflicts.forEach(c=>copyContent(c[0],c[1]));persist();renderList();pop(conflicts.length+' kanta ang na-update')},'Iwanan ang dati')}
+ }catch(err){pop('Invalid JSON file')}};r.readAsText(f);e.target.value=''};
+// linisin ang magkaparehong kanta na nasa library na
+$('dedupe').onclick=()=>{const groups=new Map();
+ lib.forEach(s=>{const k=nkey(s)||('src:'+(s.src||'').trim());if(!k||k==='src:')return;(groups.get(k)||groups.set(k,[]).get(k)).push(s)});
+ const dups=[...groups.values()].filter(g=>g.length>1);
+ if(!dups.length){pop('Walang duplicate na kanta');return}
+ const drop=[];dups.forEach(g=>{const keep=g.reduce((m,x)=>richness(x)>richness(m)?x:m,g[0]);g.forEach(x=>{if(x!==keep)drop.push(x)})});
+ const names=dups.slice(0,6).map(g=>'• '+(g[0].title||'Untitled')+' ×'+g.length).join('\n')+(dups.length>6?'\n• …':'');
+ askYes('May '+drop.length+' sobrang kopya ('+dups.length+' kanta):\n'+names+'\n\nAalisin ang sobra at itatago ang pinakakumpleto. Tuloy?','🧹 Alisin ang sobra',()=>{
+  const ids=new Set(drop.map(x=>x.id));lss('chordapp.del',[...ls('chordapp.del',[]),...ids]);lib=lib.filter(x=>!ids.has(x.id));persist();renderList();pop(drop.length+' kopya ang naalis')})};
 // optional bundled songs.json (para sa GitHub Pages)
 fetch('songs.json',{cache:'no-store'}).then(r=>r.ok?r.json():[]).then(a=>{if(!Array.isArray(a))return;const del=ls('chordapp.del',[]);let ch=0;
- a.forEach(s=>{if(s&&s.id&&s.src&&!lib.some(x=>x.id===s.id)&&!del.includes(s.id)){lib.push(s);ch++}});if(ch){persist();renderList()}}).catch(()=>{});
+ a.forEach(s=>{if(s&&s.id&&s.src&&!del.includes(s.id)&&!findDup(s)){lib.push(s);ch++}});if(ch){persist();renderList()}}).catch(()=>{});
 
 /* ---------- transpose + render ---------- */
 const shapeIdx=()=>((idx(st.key)-st.capo)%12+12)%12;
@@ -317,7 +376,7 @@ function render(){
  $('chips').querySelectorAll('button').forEach(b=>b.onclick=()=>{st.capo=+b.dataset.c;setKC()});
  $('capo').value=st.capo;
  $('capoTag').textContent=st.capo?`♫ Capo on fret ${st.capo} · ${shapeName()} shapes`:`♫ No capo · ${shapeName()}`;
- renderLegend(songChordMap(s.src,n,flat),s);renderTabs(s);
+ renderLegend(songChordMap(s.src,n,flat),s);renderTabs(s);renderPrac(s);
  $('song').textContent=s.title;$('artist').textContent=s.artist;document.title=(s.title||'Chord')+' - Chord';
 }
 
@@ -359,18 +418,35 @@ const delay=()=>(11-+$('spd').value)/100; // 10 = 0.01 s (pinakamabilis) … 1 =
 $('spd').oninput=()=>{$('spdv').textContent=delay().toFixed(2)+' s'};
 
 /* ---------- edit ---------- */
+/* ---------- undo / redo sa editor ---------- */
+const EH={stack:[],redo:[],burst:false,t:null};
+const ehSnap=()=>{const s=song();return{ti:s.title,ar:s.artist,ok:s.orig,src:s.src}};
+function ehBtns(){const u=$('eundo'),r=$('eredo');if(!u)return;u.disabled=!EH.stack.length;r.disabled=!EH.redo.length;u.style.opacity=u.disabled?.45:1;r.style.opacity=r.disabled?.45:1}
+function ehBreak(){clearTimeout(EH.t);EH.burst=false}
+function ehBefore(){ // tawagin BAGO i-apply ang pagbabago; ang tuloy-tuloy na pag-type (<0.7s) ay iisang undo step
+ if(!EH.burst){EH.stack.push(ehSnap());if(EH.stack.length>100)EH.stack.shift();EH.redo=[]}
+ clearTimeout(EH.t);EH.burst=true;EH.t=setTimeout(()=>{EH.burst=false},700);ehBtns()}
+function ehTouch(){if($('editor').style.display==='block'){ehBreak();ehBefore()}}
+function ehApply(x){const s=song(),changed=s.orig!==x.ok;s.title=x.ti;s.artist=x.ar;s.orig=x.ok;s.src=x.src;
+ $('ti').value=x.ti;$('ar').value=x.ar;$('ok').value=x.ok;$('src').value=x.src;
+ if(changed){s.key=s.orig;s.capo=0;st.key=s.orig;st.capo=0}
+ persist();render();renderList()}
+function ehUndo(){ehBreak();if(!EH.stack.length){pop('Wala nang i-uundo');return}EH.redo.push(ehSnap());ehApply(EH.stack.pop());ehBtns();pop('Na-undo')}
+function ehRedo(){ehBreak();if(!EH.redo.length){pop('Wala nang i-re-redo');return}EH.stack.push(ehSnap());ehApply(EH.redo.pop());ehBtns();pop('Na-redo')}
 function openEdit(open){$('editor').style.display=open?'block':'none';$('edit').textContent=open?'✎ Editing…':'✎ Edit';
- if(open){const s=song();$('ti').value=s.title;$('ar').value=s.artist;$('ok').value=s.orig;$('src').value=s.src;$('editor').scrollIntoView({behavior:'smooth'})}}
+ if(open){const s=song();$('ti').value=s.title;$('ar').value=s.artist;$('ok').value=s.orig;$('src').value=s.src;EH.stack=[];EH.redo=[];ehBreak();ehBtns();$('cundo').style.display=s.bak?'inline-block':'none';$('editor').scrollIntoView({behavior:'smooth'})}}
 $('edit').onclick=()=>openEdit($('editor').style.display!=='block');
+$('eundo').onclick=ehUndo;$('eredo').onclick=ehRedo;
+['src','ti','ar'].forEach(id=>$(id).addEventListener('keydown',e=>{const k=e.key.toLowerCase();if((e.ctrlKey||e.metaKey)&&k==='z'){e.preventDefault();e.shiftKey?ehRedo():ehUndo()}else if((e.ctrlKey||e.metaKey)&&k==='y'){e.preventDefault();ehRedo()}}));
 $('done').onclick=()=>{openEdit(false);window.scrollTo({top:0,behavior:'smooth'})};
 const upd=()=>{persist();render();renderList()};
-$('src').oninput=()=>{song().src=$('src').value;upd()};
-$('ti').oninput=()=>{song().title=$('ti').value;upd()};
-$('ar').oninput=()=>{song().artist=$('ar').value;upd()};
-$('ok').onchange=()=>{const s=song();s.orig=$('ok').value;s.key=s.orig;s.capo=0;st.key=s.orig;st.capo=0;upd()};
-function deleteSong(id){const s=lib.find(x=>x.id===id);if(!s||!confirm('I-delete ang "'+(s.title||'Untitled')+'"?'))return;
- lss('chordapp.del',[...ls('chordapp.del',[]),id]);lib=lib.filter(x=>x.id!==id);persist();
- if(curId===id)goHome();else renderList();pop('Na-delete na')}
+$('src').oninput=()=>{ehBefore();song().src=$('src').value;upd()};
+$('ti').oninput=()=>{ehBefore();song().title=$('ti').value;upd()};
+$('ar').oninput=()=>{ehBefore();song().artist=$('ar').value;upd()};
+$('ok').onchange=()=>{ehBreak();ehBefore();const s=song();s.orig=$('ok').value;s.key=s.orig;s.capo=0;st.key=s.orig;st.capo=0;upd()};
+function deleteSong(id){const s=lib.find(x=>x.id===id);if(!s)return;
+ askYes('I-delete ang "'+(s.title||'Untitled')+'"?','🗑 Delete',()=>{lss('chordapp.del',[...ls('chordapp.del',[]),id]);lib=lib.filter(x=>x.id!==id);persist();
+  if(curId===id)goHome();else renderList();pop('Na-delete na')})}
 $('del').onclick=()=>deleteSong(curId);
 $('del2').onclick=()=>deleteSong(curId);
 
@@ -401,7 +477,18 @@ function convert(txt){
  }
  return o.join('\n');
 }
-$('conv').onclick=()=>{$('src').value=convert($('src').value);$('src').oninput();pop('Na-convert na')};
+function popAct(t,label,fn){const p=$('pop');p.textContent=t+' ';const b=document.createElement('button');b.textContent=label;
+ b.style.cssText='margin-left:6px;background:var(--card);color:var(--ink);border:0;border-radius:8px;padding:4px 10px;font-weight:700;cursor:pointer';
+ b.onclick=()=>{p.style.display='none';fn()};p.append(b);p.style.display='block';clearTimeout(p.t);p.t=setTimeout(()=>p.style.display='none',7000)}
+function convertWith(fn,msg){ehBreak();const s=song(),before=$('src').value,after=fn(before);
+ if(after===before){pop('Walang kailangang i-convert');return}
+ s.bak={src:before,after};$('src').value=after;$('src').oninput();$('cundo').style.display='inline-block';popAct(msg,'↶ Undo',restoreBak)}
+function restoreBak(){const s=song();if(!s||!s.bak)return;
+ const go=()=>{ehBreak();const old=s.bak.src;delete s.bak;$('src').value=old;$('src').oninput();$('cundo').style.display='none';pop('Naibalik ang dating lyrics')};
+ if($('src').value!==s.bak.after)askYes('May mga binago ka pa pagkatapos ng Convert. Ibabalik pa rin ang dating lyrics? (mawawala ang mga bago mong binago)','↩ Ibalik ang dati',go,'Huwag');else go()}
+$('cundo').onclick=restoreBak;
+$('toOver').onclick=()=>convertWith(v=>toOver(convert(v)),'Nailipat sa ibabaw ng lyrics ang chords.');
+$('conv').onclick=()=>convertWith(convert,'Na-convert na.');
 
 /* ---------- chord library: fingerings (6th → 1st string, -1 = mute) ---------- */
 const OPEN={'C':'x32010','D':'xx0232','E':'022100','F':'133211','G':'320003','A':'x02220','B':'x24442','Am':'x02210','Bm':'x24432','Dm':'xx0231','Em':'022000',
@@ -448,11 +535,14 @@ function chordSVG(fr,fing,w){
  const vh=fing?96:84;w=w||64;
  return `<svg viewBox="0 0 72 ${vh}" width="${w}" height="${Math.round(w*vh/72)}" role="img" aria-label="chord diagram">${o}</svg>`}
 
+/* ---------- in-app confirm (gumagana kahit naka-block ang native confirm ng browser) ---------- */
+function askYes(msg,yes,fn,no){$('cfm').textContent=msg;$('cfy').textContent=yes||'OK';$('cfn').textContent=no||'Huwag';
+ const c=$('cf'),close=()=>c.classList.remove('on');$('cfy').onclick=()=>{close();fn()};$('cfn').onclick=close;c.onclick=e=>{if(e.target===c)close()};c.classList.add('on')}
 /* ---------- overlay ---------- */
 function ov(html){$('ovc').innerHTML=html;$('ov').classList.add('on')}
 function closeOv(){$('ov').classList.remove('on');$('ovc').innerHTML=''}
 $('ov').onclick=e=>{if(e.target===$('ov'))closeOv()};
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('ov').classList.contains('on'))closeOv()});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('cf').classList.contains('on'))$('cf').classList.remove('on');else if($('ov').classList.contains('on'))closeOv()});
 
 /* ---------- legend ---------- */
 function songChords(src,n,flat){const seen=[],set=new Set();
@@ -474,7 +564,7 @@ function renderLegend(items,s){
  $('lgTog').onclick=()=>{lss('chordapp.legendOpen',!open);render()};
  $('lgAdd').onclick=()=>openLegend('',true);
  $('legend').querySelectorAll('.cd').forEach(e=>e.onclick=()=>openLegend(e.dataset.n,false));
- $('legend').querySelectorAll('.cdx').forEach(b=>b.onclick=ev=>{ev.stopPropagation();if(confirm('Alisin ang '+b.dataset.x+' sa legend?'))legendDel(s,b.dataset.x)});
+ $('legend').querySelectorAll('.cdx').forEach(b=>b.onclick=ev=>{ev.stopPropagation();askYes('Alisin ang '+b.dataset.x+' sa legend?','Alisin',()=>legendDel(s,b.dataset.x))});
  if($('lgRest'))$('lgRest').onclick=()=>{s.hide=[];persist();render();pop('Naibalik')}}
 function openLegend(name,isNew){
  const s=song(),cu=(!isNew&&s.legend&&s.legend[name])||'';
@@ -518,13 +608,23 @@ function placeHTML(s){const used=new Set();let h=tabsHTML(s,'*top',used);
    return `<span class="seg2"><span class="ch${g.c?' pc':''}"${g.c?` data-l="${i}" data-k="${g.k}"`:''}>${g.c?esc(g.c):'&nbsp;'}</span><span class="ly">${chars}${' '.repeat(pad)}</span></span>`}).join('')
    +`<span class="seg2"><span class="ch">&nbsp;</span><span class="ly"><span class="pc plus" data-l="${i}" data-p="${T.length}">＋</span></span></span></div>`});
  return h+orphanHTML(s,used)}
+function toOver(src){const out=[];
+ src.split('\n').forEach(l=>{
+  if(l.startsWith('#')||!/\[[^\]]+\]/.test(l)){out.push(l);return}
+  const m=parseLine(l);
+  if(!m.chords.length||!m.chords.every(c=>asChord(c.c))){out.push(l);return} // may kakaibang chord: iwanang naka-bracket para walang mawala
+  if(!m.text.trim()){out.push(m.chords.map(c=>c.c).join('  '));return}
+  let cl='';m.chords.forEach(c=>{const pos=Math.max(c.pos,cl?cl.length+1:0);cl=cl.padEnd(pos)+c.c});
+  out.push(cl,m.text)});
+ return out.join('\n')}
 function setPlace(on){const b=document.body;if(on===b.classList.contains('pm'))return;
  if(on){const s=song();if(!s)return;stopScroll();exitFS();
-  s.src=convert(s.src);s.key=s.orig;s.capo=0;st.key=s.orig;st.capo=0;placeUndo=[];persist();
+  s.over=s.src.split('\n').some(l=>!l.startsWith('#')&&isCL(l));s.src=convert(s.src);s.key=s.orig;s.capo=0;st.key=s.orig;st.capo=0;placeUndo=[];persist();
   b.classList.add('pm');$('place').textContent='✓ Tapos';$('place').classList.add('on')}
- else{b.classList.remove('pm');$('place').textContent='🎯 Place chords';$('place').classList.remove('on');closeOv()}
+ else{b.classList.remove('pm');$('place').textContent='🎯 Place chords';$('place').classList.remove('on');closeOv();
+  const s=song();if(s&&s.over){s.src=toOver(s.src);s.over=false;persist();if($('editor').style.display==='block')$('src').value=s.src}}
  if(song())render()}
-function putChord(l,pos,k,chord){const s=song(),L=s.src.split('\n'),m=parseLine(L[l]);
+function putChord(l,pos,k,chord){ehTouch();const s=song(),L=s.src.split('\n'),m=parseLine(L[l]);
  if(k!=null){if(chord)m.chords[k].c=chord;else m.chords.splice(k,1)}
  else{let at=m.chords.findIndex(c=>c.pos>pos);if(at<0)at=m.chords.length;m.chords.splice(at,0,{pos,c:chord})}
  placeUndo.push(s.src);if(placeUndo.length>60)placeUndo.shift();
@@ -666,7 +766,7 @@ function renderTabs(s){const open=tabOn(),T=s.tabs||[],heads=sectionNames(s).map
  $('tbAdd').onclick=()=>openTab(null);
  $('tabs').querySelectorAll('.tchip[data-t]').forEach(b=>b.onclick=()=>openTab(b.dataset.t));
  $('tabs').querySelectorAll('.tdel').forEach(b=>b.onclick=()=>delTab(b.dataset.d))}
-function delTab(id){const s=song();if(!s||!confirm('I-delete ang tab na ito?'))return;s.tabs=(s.tabs||[]).filter(t=>t.id!==id);persist();render();pop('Na-delete ang tab')}
+function delTab(id){const s=song();if(!s)return;askYes('I-delete ang tab na ito?','🗑 Delete',()=>{s.tabs=(s.tabs||[]).filter(t=>t.id!==id);persist();render();pop('Na-delete ang tab')})}
 function openTab(id){const s=song();s.tabs=s.tabs||[];const ex=id&&s.tabs.find(t=>t.id===id),heads=sectionNames(s),hist=[];
  const cur=ex?ex.section:(heads.find(h=>/intro/i.test(h))||heads[0]||'Intro');
  const opts=[['*top','⬆ Pinakataas ng kanta'],...heads.map(h=>[h,h]),...TPRE.filter(p=>!heads.some(h=>secKey(h)===secKey(p))).map(p=>[p,p+' (wala pa sa kanta)'])];
@@ -704,7 +804,7 @@ function openTab(id){const s=song();s.tabs=s.tabs||[];const ex=id&&s.tabs.find(t
  $('tbUndo').onclick=()=>{if(!hist.length){pop('Wala nang i-uundo');return}$('tbT').value=hist.pop();prev()};
  $('tbMeas').onclick=()=>{const r=need();if(!r)return;hist.push($('tbT').value);r.ix.forEach(li=>r.L[li]+='-------|');commit(r)};
  $('tbC').onclick=closeOv;
- if($('tbDel'))$('tbDel').onclick=()=>{if(!confirm('I-delete ang tab na ito?'))return;s.tabs=s.tabs.filter(t=>t.id!==id);persist();render();closeOv();pop('Na-delete ang tab')};
+ if($('tbDel'))$('tbDel').onclick=()=>askYes('I-delete ang tab na ito?','🗑 Delete',()=>{s.tabs=s.tabs.filter(t=>t.id!==id);persist();render();closeOv();pop('Na-delete ang tab')});
  $('tbSave').onclick=()=>{let sec=$('tbS').value;if(sec==='__c')sec=$('tbSc').value.trim();
   const text=$('tbT').value.replace(/\s+$/,'');
   if(!sec){pop('Maglagay ng section');return}if(!text.trim()){pop('Walang laman ang tab');return}

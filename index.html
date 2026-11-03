@@ -189,6 +189,13 @@ body.fs .cdx,body.fs .tbx-d{display:none!important}
 .prrow .mut{color:var(--mut);font-size:13px}
 #prac .lgb:disabled{opacity:.4}
 body.home #prac,body.fs #prac{display:none!important}
+/* drag tab */
+.tbx-g{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;padding:2px 9px;font-size:15px;letter-spacing:0;line-height:1.2}
+.tabbox.dragging{opacity:.35}
+#tdg{position:fixed;z-index:50;pointer-events:none;background:var(--card);color:var(--ink);border:2px solid var(--red);border-radius:10px;padding:6px 12px;font:700 13px system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35);transform:translate(-50%,-130%);max-width:80vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tdi{position:fixed;z-index:49;height:4px;border-radius:2px;background:var(--red);pointer-events:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--red) 28%,transparent)}
+body.tdrag,body.tdrag *{user-select:none;-webkit-user-select:none}
+body.fs .tbx-g{display:none!important}
 </style></head><body class="home"><div class="wrap">
 <h1><span class="a" id="artist"></span> - <span id="song"></span> - Chord</h1>
 
@@ -350,19 +357,19 @@ const tr=(ch,n,flat)=>n===0?ch:ch.replace(/[A-G][#b]?/g,m=>{const i=idx(m);retur
 function render(){
  closeCP();
  const s=song(),n=idx(st.key)-idx(s.orig)-st.capo,flat=FLATS.includes(shapeName());
- const used=new Set();let h=topTabsHTML(s,used);
- convert(s.src).split('\n').forEach(l=>{
-  if(l.startsWith('#')){h+=`<div class="sec">${esc(l.slice(1).trim())}</div>`+tabsHTML(s,l.slice(1).trim(),used);return}
-  if(!l.trim()){h+='<div style="height:.6em"></div>';return}
+ const used=new Set(),LN=convert(s.src).split('\n'),anc=anchorMap(s,LN,used);let h=topTabsHTML(s,used)+(anc[-1]||'');
+ LN.forEach((l,li)=>{if(li>0)h+=anc[li-1]||'';
+  if(l.startsWith('#')){h+=`<div class="sec" data-li="${li}">${esc(l.slice(1).trim())}</div>`+tabsHTML(s,l.slice(1).trim(),used);return}
+  if(!l.trim()){h+=`<div style="height:.6em" data-li="${li}"></div>`;return}
   const out=[];let pend=null;
   l.split(/(\[[^\]]+\])/).filter(x=>x!=='').forEach(p=>{
    if(p[0]==='['&&p.length>2){if(pend!==null)out.push([pend,'']);pend=p.slice(1,-1)}else{out.push([pend,p]);pend=null}});
   if(pend!==null)out.push([pend,'']);
-  h+='<div class="ln">'+out.map(([c,t])=>{
+  h+='<div class="ln" data-li="'+li+'">'+out.map(([c,t])=>{
    const cc=c?tr(c,n,flat):'';
    const pad=cc&&t.length<cc.length+1?' '.repeat(cc.length+1-t.length):'';
    return `<span class="seg2"><span class="ch" data-c="${esc(cc)}">${esc(cc)||'&nbsp;'}</span><span class="ly">${esc(t+pad).replace(/ /g,'&nbsp;')||'&nbsp;'}</span></span>`}).join('')+'</div>'});
- h+=orphanHTML(s,used);
+ h+=anc[LN.length-1]||'';h+=orphanHTML(s,used);
  if(document.body.classList.contains('pm')){h=placeHTML(s);$('pmsg').textContent=`I-tap ang lyrics (o ang ＋ sa dulo ng linya) kung saan ilalagay ang chord. I-tap ang chord para palitan o alisin. Naka-original key (${s.orig}) habang nag-eedit.`}
  $('sheet').innerHTML=h;
  $('sheet').className='card sheet '+st.font;$('sheet').style.fontSize=st.size+'px';$('fz').textContent=st.size;
@@ -603,20 +610,20 @@ function parseLine(l){const chords=[];let text='';
  l.split(/(\[[^\]]+\])/).filter(x=>x!=='').forEach(p=>{if(p[0]==='['&&p.length>2)chords.push({pos:text.length,c:p.slice(1,-1)});else text+=p});
  return{chords,text}}
 function serLine(m){let o='',cur=0;m.chords.forEach(c=>{o+=m.text.slice(cur,c.pos)+'['+c.c+']';cur=c.pos});return o+m.text.slice(cur)}
-function placeHTML(s){const used=new Set();let h=topTabsHTML(s,used);
- s.src.split('\n').forEach((l,i)=>{
-  if(l.startsWith('#')){h+=`<div class="sec">${esc(l.slice(1).trim())}</div>`+tabsHTML(s,l.slice(1).trim(),used);return}
-  if(!l.trim()){h+='<div style="height:.6em"></div>';return}
+function placeHTML(s){const used=new Set(),PL=s.src.split('\n'),anc=anchorMap(s,PL,used);let h=topTabsHTML(s,used)+(anc[-1]||'');
+ PL.forEach((l,i)=>{if(i>0)h+=anc[i-1]||'';
+  if(l.startsWith('#')){h+=`<div class="sec" data-li="${i}">${esc(l.slice(1).trim())}</div>`+tabsHTML(s,l.slice(1).trim(),used);return}
+  if(!l.trim()){h+=`<div style="height:.6em" data-li="${i}"></div>`;return}
   const m=parseLine(l),C=m.chords,T=m.text,segs=[];
   if(!C.length)segs.push({p:0,t:T,c:null});
   else{if(C[0].pos>0)segs.push({p:0,t:T.slice(0,C[0].pos),c:null});
    C.forEach((c,k)=>segs.push({p:c.pos,t:T.slice(c.pos,k+1<C.length?C[k+1].pos:T.length),c:c.c,k}))}
-  h+='<div class="ln">'+segs.map(g=>{
+  h+='<div class="ln" data-li="'+i+'">'+segs.map(g=>{
    const pad=g.c&&g.t.length<g.c.length+1?g.c.length+1-g.t.length:0;
    const chars=g.t.split('').map((ch,j)=>`<span class="pc" data-l="${i}" data-p="${g.p+j}">${esc(ch)}</span>`).join('');
    return `<span class="seg2"><span class="ch${g.c?' pc':''}"${g.c?` data-l="${i}" data-k="${g.k}"`:''}>${g.c?esc(g.c):'&nbsp;'}</span><span class="ly">${chars}${' '.repeat(pad)}</span></span>`}).join('')
    +`<span class="seg2"><span class="ch">&nbsp;</span><span class="ly"><span class="pc plus" data-l="${i}" data-p="${T.length}">＋</span></span></span></div>`});
- return h+orphanHTML(s,used)}
+ return h+(anc[PL.length-1]||'')+orphanHTML(s,used)}
 function toOver(src){const out=[];
  src.split('\n').forEach(l=>{
   if(l.startsWith('#')||!/\[[^\]]+\]/.test(l)){out.push(l);return}
@@ -761,16 +768,23 @@ const secLabel=x=>x==='*top'?'Pinakataas':x;
 function sectionNames(s){const o=[];convert(s.src||'').split('\n').forEach(l=>{if(l.startsWith('#')){const n=l.slice(1).trim();if(n&&!o.some(x=>secKey(x)===secKey(n)))o.push(n)}});return o}
 function tabLineHTML(l){const t=esc(l);
  return(/^\s*[A-Ga-g]?[#b]?\s*\|/.test(l)||/-{3,}/.test(l))?t.replace(/(\d+)|(-+)/g,(m,a,b)=>a?`<span class="tf">${a}</span>`:`<span class="td">${b}</span>`):t}
-function tabBlockHTML(t){return `<div class="tabbox"><div class="tabhd"><span>🎼 Tab${t.label?' · '+esc(t.label):''}</span><span class="sp"></span><button class="tbx-e" data-t="${t.id}">✎ Edit</button><button class="tbx-d" data-t="${t.id}" title="Delete">🗑</button></div><pre class="tabpre">${String(t.text||'').replace(/\s+$/,'').split('\n').map(tabLineHTML).join('\n')}</pre></div>`}
+function tabBlockHTML(t){return `<div class="tabbox"><div class="tabhd"><button class="tbx-g" data-t="${t.id}" title="I-drag para ilipat sa ibang pwesto">⠿</button><span>🎼 Tab${t.label?' · '+esc(t.label):''}</span><span class="sp"></span><button class="tbx-e" data-t="${t.id}">✎ Edit</button><button class="tbx-d" data-t="${t.id}" title="Delete">🗑</button></div><pre class="tabpre">${String(t.text||'').replace(/\s+$/,'').split('\n').map(tabLineHTML).join('\n')}</pre></div>`}
 function tabsHTML(s,sec,used){if(!tabOn()||!s.tabs)return'';let h='';
- s.tabs.forEach(t=>{if(secKey(t.section)===secKey(sec)){h+=tabBlockHTML(t);if(used)used.add(t.id)}});return h}
-function isTop(s,t){if(t.section==='*top')return true;const k=secKey(t.section);return k==='intro'&&!sectionNames(s).some(x=>secKey(x)===k)} // walang "# Intro" sa kanta -> sa pinakataas ilalagay
+ s.tabs.forEach(t=>{if(!t.at&&secKey(t.section)===secKey(sec)){h+=tabBlockHTML(t);if(used)used.add(t.id)}});return h}
+function isTop(s,t){if(t.at)return false;if(t.section==='*top')return true;const k=secKey(t.section);return k==='intro'&&!sectionNames(s).some(x=>secKey(x)===k)} // walang "# Intro" sa kanta -> sa pinakataas ilalagay
 function topTabsHTML(s,used){if(!tabOn()||!s.tabs)return'';let h='';s.tabs.forEach(t=>{if(isTop(s,t)){h+=tabBlockHTML(t);used.add(t.id)}});return h}
+// tab na inilagay sa pamamagitan ng pag-drag: nakadikit sa isang linya ng kanta (index + text para hindi mawala kapag may binago)
+function anchorIdx(L,t){const a=t.at;if(a.i<0)return -1;if(a.i<L.length&&L[a.i].trim()===a.ref)return a.i;
+ let best=null;L.forEach((l,i)=>{if(l.trim()===a.ref&&(best===null||Math.abs(i-a.i)<Math.abs(best-a.i)))best=i});
+ return best!==null?best:Math.max(-1,Math.min(a.i,L.length-1))}
+function anchorMap(s,L,used){const m={};if(!tabOn()||!s.tabs)return m;
+ s.tabs.forEach(t=>{if(!t.at)return;const i=anchorIdx(L,t);m[i]=(m[i]||'')+tabBlockHTML(t);used.add(t.id)});return m}
+function tabWhere(s,t){if(!t.at)return secLabel(t.section);if(t.at.i<0)return 'Pinakataas';const r=t.at.ref.replace(/\[[^\]]+\]/g,'').trim();return '📍 '+(r.length>22?r.slice(0,22)+'…':r||'linya')}
 function orphanHTML(s,used){if(!tabOn()||!s.tabs)return'';
  return s.tabs.filter(t=>!used.has(t.id)).map(t=>`<div class="sec">${esc(secLabel(t.section)||'Tab')} <span style="text-transform:none;letter-spacing:0">(walang ganitong section sa kanta)</span></div>`+tabBlockHTML(t)).join('')}
 function renderTabs(s){const open=tabOn(),T=s.tabs||[],heads=sectionNames(s).map(secKey);
- const chips=T.map(t=>{const ok=isTop(s,t)||heads.includes(secKey(t.section));
-  return `<span class="tchip-g"><button class="tchip ${ok?'':'warn'}" data-t="${t.id}">${ok?'':'⚠ '}${esc(secLabel(t.section))}${t.label?' · '+esc(t.label):''} ✎</button><button class="tchip tdel" data-d="${t.id}" title="Delete" aria-label="Delete tab">✕</button></span>`}).join('');
+ const chips=T.map(t=>{const ok=!!t.at||isTop(s,t)||heads.includes(secKey(t.section));
+  return `<span class="tchip-g"><button class="tchip ${ok?'':'warn'}" data-t="${t.id}">${ok?'':'⚠ '}${esc(tabWhere(s,t))}${t.label?' · '+esc(t.label):''} ✎</button><button class="tchip tdel" data-d="${t.id}" title="Delete" aria-label="Delete tab">✕</button></span>`}).join('');
  $('tabs').innerHTML=`<div class="lg-head"><b>🎼 Guitar Tabs</b><span class="mut">${T.length} tab${T.length==1?'':'s'}</span><span class="sp"></span><button class="lgb" id="tbAdd">＋ Tab</button><button class="lgb" id="tbTog">${open?'Itago':'Ipakita'}</button></div>`+
   (open?(T.length?`<div class="tchips">${chips}</div><div class="hint">Lalabas ang tab sa ilalim ng section na pinili mo. ⚠ = walang ganoong section sa kanta. Hindi nagta-transpose ang tabs.</div>`:'<div class="hint">Wala pang tab. Pindutin ang ＋ Tab para maglagay sa Intro, Verse, Chorus, atbp.</div>'):'');
  $('tbTog').onclick=()=>{lss('chordapp.tabOpen',!open);render()};
@@ -786,6 +800,7 @@ function openTab(id){const s=song();s.tabs=s.tabs||[];const ex=id&&s.tabs.find(t
  <datalist id="tbDL">${sug.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>
  <div class="chips" id="tbQ">${sug.map(x=>`<button class="qb" data-s="${esc(x)}">${esc(x)}</button>`).join('')}<button class="qb" data-s="Pinakataas">⬆ Pinakataas</button></div>
  <div class="hint" id="tbSH" style="margin:4px 0 0"></div>
+ ${ex&&ex.at?'<div class="hint" style="margin:4px 0 0">📍 Nakalagay ayon sa pag-drag'+(ex.at.i<0?' (pinakataas)':' sa ilalim ng linyang “'+esc(ex.at.ref)+'”')+'. Kung papalitan mo ang section sa taas at mag-save, babalik ito sa section.</div>':''}
  <h4>Pangalan (optional)</h4><input id="tbL" class="inp" placeholder="hal. Riff 1" value="${esc(ex?ex.label||'':'')}" autocomplete="off">
  <h4>Tab</h4>
  <div class="bar tbtools"><select id="tbK">${TSTR.map((x,i)=>`<option value="${i}">${x} (${TORD[i]})</option>`).join('')}</select><input id="tbF" class="inp" inputmode="numeric" maxlength="2" placeholder="fret" style="width:62px"><button class="red" id="tbNote">＋ Note</button><button id="tbRest">— Rest</button><button id="tbBar">| Bar</button><button id="tbUndo">⌫ Undo</button></div>
@@ -825,10 +840,38 @@ function openTab(id){const s=song();s.tabs=s.tabs||[];const ex=id&&s.tabs.find(t
   const text=$('tbT').value.replace(/\s+$/,'');
   if(!sec){pop('Maglagay ng section');return}if(!text.trim()){pop('Walang laman ang tab');return}
   const label=$('tbL').value.trim();
-  if(ex){ex.section=sec;ex.label=label;ex.text=text}else s.tabs.push({id:uid(),section:sec,label,text});
+  if(ex){if(ex.at&&secKey(sec)!==secKey(ex.section==='*top'?'pinakataas':ex.section)&&!(sec==='*top'&&ex.section==='*top'))delete ex.at;ex.section=sec;ex.label=label;ex.text=text}else s.tabs.push({id:uid(),section:sec,label,text});
   persist();render();closeOv();pop('Na-save ang tab')};
  prev()}
 $('sheet').addEventListener('click',e=>{const b=e.target.closest('.tbx-e');if(b){openTab(b.dataset.t);return}const x=e.target.closest('.tbx-d');if(x)delTab(x.dataset.t)});
+
+/* ---------- i-drag ang tab sa gusto mong pwesto ---------- */
+let TD=null;
+function dragTargets(){const els=[...$('sheet').querySelectorAll('[data-li]')];if(!els.length)return[];
+ const c=[{li:-1,y:els[0].getBoundingClientRect().top}];els.forEach(e=>c.push({li:+e.dataset.li,y:e.getBoundingClientRect().bottom}));return c}
+function dragUpdate(){if(!TD)return;const T=dragTargets();if(!T.length)return;let b=T[0];T.forEach(c=>{if(Math.abs(c.y-TD.y)<Math.abs(b.y-TD.y))b=c});TD.li=b.li;
+ const r=$('sheet').getBoundingClientRect(),i=$('tdi');i.style.left=r.left+'px';i.style.width=r.width+'px';i.style.top=(b.y-2)+'px'}
+function dragEnd(apply){if(!TD)return;clearInterval(TD.t);const li=TD.li,id=TD.id,moved=TD.moved;
+ ['tdg','tdi'].forEach(x=>{const e=$(x);if(e)e.remove()});document.body.classList.remove('tdrag');
+ document.querySelectorAll('.tabbox.dragging').forEach(e=>e.classList.remove('dragging'));
+ document.removeEventListener('pointermove',dragMove);document.removeEventListener('pointerup',dragUp);document.removeEventListener('pointercancel',dragCancel);TD=null;
+ if(!apply||!moved||li===null)return;
+ const s=song(),t=(s.tabs||[]).find(x=>x.id===id);if(!t)return;
+ const L=document.body.classList.contains('pm')?s.src.split('\n'):convert(s.src).split('\n');
+ t.at={i:li,ref:li>=0?(L[li]||'').trim():''};persist();render();pop('Nailipat ang tab')}
+function dragMove(e){if(!TD)return;TD.y=e.clientY;if(Math.abs(e.clientY-TD.y0)>8||Math.abs(e.clientX-TD.x0)>8)TD.moved=true;
+ const g=$('tdg');g.style.left=e.clientX+'px';g.style.top=e.clientY+'px';dragUpdate()}
+function dragUp(){dragEnd(true)}
+function dragCancel(){dragEnd(false)}
+function startTabDrag(id,e){if(TD)return;const s=song(),t=(s.tabs||[]).find(x=>x.id===id);if(!t)return;
+ TD={id,li:null,y:e.clientY,y0:e.clientY,x0:e.clientX,moved:false,t:null};document.body.classList.add('tdrag');
+ const box=e.target.closest('.tabbox');if(box)box.classList.add('dragging');
+ const g=document.createElement('div');g.id='tdg';g.textContent='🎼 '+(t.label||'Tab')+' · ilagay sa gusto mong linya';g.style.left=e.clientX+'px';g.style.top=e.clientY+'px';document.body.append(g);
+ const i=document.createElement('div');i.id='tdi';document.body.append(i);
+ TD.t=setInterval(()=>{if(!TD)return;if(TD.y<70)window.scrollBy(0,-14);else if(TD.y>window.innerHeight-70)window.scrollBy(0,14);dragUpdate()},30);
+ document.addEventListener('pointermove',dragMove);document.addEventListener('pointerup',dragUp);document.addEventListener('pointercancel',dragCancel);dragUpdate()}
+document.addEventListener('pointerdown',e=>{const g=e.target.closest&&e.target.closest('.tbx-g');if(!g)return;e.preventDefault();startTabDrag(g.dataset.t,e)});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&TD)dragEnd(false)});
 
 const THEMES=[['light','Classic Light','light','#f4f5f7','#ffffff','#111827','#b91c1c','#e5e7eb',0],['dark','Classic Dark','dark','#0f1115','#181b22','#f3f4f6','#f87171','#2a2f3a',0],
 ['midnight','Midnight Gold','dark','#0b1020','#121a30','#f4efe1','#d4af37','#26314f',1],['champagne','Champagne','light','#f6efe2','#fffaf1','#2a2118','#a1741f','#e6d9c3',1],

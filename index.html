@@ -350,7 +350,7 @@ const tr=(ch,n,flat)=>n===0?ch:ch.replace(/[A-G][#b]?/g,m=>{const i=idx(m);retur
 function render(){
  closeCP();
  const s=song(),n=idx(st.key)-idx(s.orig)-st.capo,flat=FLATS.includes(shapeName());
- const used=new Set();let h=tabsHTML(s,'*top',used);
+ const used=new Set();let h=topTabsHTML(s,used);
  convert(s.src).split('\n').forEach(l=>{
   if(l.startsWith('#')){h+=`<div class="sec">${esc(l.slice(1).trim())}</div>`+tabsHTML(s,l.slice(1).trim(),used);return}
   if(!l.trim()){h+='<div style="height:.6em"></div>';return}
@@ -504,12 +504,14 @@ const CHRE=/^([A-G][#b]?)([^\/]*)(?:\/([A-G][#b]?))?$/;
 function barreGen(root,q){let best=null;
  for(const [T,off] of [[ETPL,4],[ATPL,9]]){if(!T[q])continue;const f=((idx(root)-off)%12+12)%12;if(!best||f<best.f)best={f,t:T[q]}}
  return best&&best.t.map(x=>x<0?-1:x+best.f)}
-function splitCompact(s){ // "x9xx10x" -> x,9,x,x,10,x (tinatanggap ang 2-digit fret kahit walang '-')
- const go=(i,acc)=>{if(acc.length===6)return i===s.length?acc:null;if(i>=s.length)return null;
-  const ch=s[i];if(ch==='x')return go(i+1,[...acc,-1]);if(!/\d/.test(ch))return null;
-  const two=s.slice(i,i+2);
-  return go(i+1,[...acc,+ch])||(/^(1\d|2[0-4])$/.test(two)?go(i+2,[...acc,+two]):null)};
- return go(0,[])}
+function splitCompact(s){ // "x9111100" -> x,9,11,11,0,0 (2-digit fret kahit walang '-'); pinipili ang pinaka-tugtugin na hati
+ const out=[];
+ const go=(i,acc)=>{if(acc.length===6){if(i===s.length)out.push(acc);return}if(i>=s.length)return;
+  const ch=s[i];if(ch==='x'){go(i+1,[...acc,-1]);return}if(!/\d/.test(ch))return;
+  go(i+1,[...acc,+ch]);const two=s.slice(i,i+2);if(/^(1\d|2[0-4])$/.test(two))go(i+2,[...acc,+two])};
+ go(0,[]);if(!out.length)return null;
+ const span=a=>{const f=a.filter(v=>v>0);return f.length?Math.max(...f)-Math.min(...f):0},two=a=>a.filter(v=>v>9).length;
+ out.sort((p,q)=>span(p)-span(q)||two(q)-two(p));return out[0]}
 function parseFret(str){if(!str)return null;const s=String(str).trim().toLowerCase();let r;
  if(/[\s,\-]/.test(s))r=s.split(/[\s,\-]+/).filter(Boolean).map(x=>x==='x'?-1:/^\d+$/.test(x)?+x:NaN);
  else if(s.length===6)r=s.split('').map(x=>x==='x'?-1:/^\d$/.test(x)?+x:NaN);
@@ -601,7 +603,7 @@ function parseLine(l){const chords=[];let text='';
  l.split(/(\[[^\]]+\])/).filter(x=>x!=='').forEach(p=>{if(p[0]==='['&&p.length>2)chords.push({pos:text.length,c:p.slice(1,-1)});else text+=p});
  return{chords,text}}
 function serLine(m){let o='',cur=0;m.chords.forEach(c=>{o+=m.text.slice(cur,c.pos)+'['+c.c+']';cur=c.pos});return o+m.text.slice(cur)}
-function placeHTML(s){const used=new Set();let h=tabsHTML(s,'*top',used);
+function placeHTML(s){const used=new Set();let h=topTabsHTML(s,used);
  s.src.split('\n').forEach((l,i)=>{
   if(l.startsWith('#')){h+=`<div class="sec">${esc(l.slice(1).trim())}</div>`+tabsHTML(s,l.slice(1).trim(),used);return}
   if(!l.trim()){h+='<div style="height:.6em"></div>';return}
@@ -762,10 +764,12 @@ function tabLineHTML(l){const t=esc(l);
 function tabBlockHTML(t){return `<div class="tabbox"><div class="tabhd"><span>🎼 Tab${t.label?' · '+esc(t.label):''}</span><span class="sp"></span><button class="tbx-e" data-t="${t.id}">✎ Edit</button><button class="tbx-d" data-t="${t.id}" title="Delete">🗑</button></div><pre class="tabpre">${String(t.text||'').replace(/\s+$/,'').split('\n').map(tabLineHTML).join('\n')}</pre></div>`}
 function tabsHTML(s,sec,used){if(!tabOn()||!s.tabs)return'';let h='';
  s.tabs.forEach(t=>{if(secKey(t.section)===secKey(sec)){h+=tabBlockHTML(t);if(used)used.add(t.id)}});return h}
+function isTop(s,t){if(t.section==='*top')return true;const k=secKey(t.section);return k==='intro'&&!sectionNames(s).some(x=>secKey(x)===k)} // walang "# Intro" sa kanta -> sa pinakataas ilalagay
+function topTabsHTML(s,used){if(!tabOn()||!s.tabs)return'';let h='';s.tabs.forEach(t=>{if(isTop(s,t)){h+=tabBlockHTML(t);used.add(t.id)}});return h}
 function orphanHTML(s,used){if(!tabOn()||!s.tabs)return'';
  return s.tabs.filter(t=>!used.has(t.id)).map(t=>`<div class="sec">${esc(secLabel(t.section)||'Tab')} <span style="text-transform:none;letter-spacing:0">(walang ganitong section sa kanta)</span></div>`+tabBlockHTML(t)).join('')}
 function renderTabs(s){const open=tabOn(),T=s.tabs||[],heads=sectionNames(s).map(secKey);
- const chips=T.map(t=>{const ok=t.section==='*top'||heads.includes(secKey(t.section));
+ const chips=T.map(t=>{const ok=isTop(s,t)||heads.includes(secKey(t.section));
   return `<span class="tchip-g"><button class="tchip ${ok?'':'warn'}" data-t="${t.id}">${ok?'':'⚠ '}${esc(secLabel(t.section))}${t.label?' · '+esc(t.label):''} ✎</button><button class="tchip tdel" data-d="${t.id}" title="Delete" aria-label="Delete tab">✕</button></span>`}).join('');
  $('tabs').innerHTML=`<div class="lg-head"><b>🎼 Guitar Tabs</b><span class="mut">${T.length} tab${T.length==1?'':'s'}</span><span class="sp"></span><button class="lgb" id="tbAdd">＋ Tab</button><button class="lgb" id="tbTog">${open?'Itago':'Ipakita'}</button></div>`+
   (open?(T.length?`<div class="tchips">${chips}</div><div class="hint">Lalabas ang tab sa ilalim ng section na pinili mo. ⚠ = walang ganoong section sa kanta. Hindi nagta-transpose ang tabs.</div>`:'<div class="hint">Wala pang tab. Pindutin ang ＋ Tab para maglagay sa Intro, Verse, Chorus, atbp.</div>'):'');
@@ -775,14 +779,13 @@ function renderTabs(s){const open=tabOn(),T=s.tabs||[],heads=sectionNames(s).map
  $('tabs').querySelectorAll('.tdel').forEach(b=>b.onclick=()=>delTab(b.dataset.d))}
 function delTab(id){const s=song();if(!s)return;askYes('I-delete ang tab na ito?','🗑 Delete',()=>{s.tabs=(s.tabs||[]).filter(t=>t.id!==id);persist();render();pop('Na-delete ang tab')})}
 function openTab(id){const s=song();s.tabs=s.tabs||[];const ex=id&&s.tabs.find(t=>t.id===id),heads=sectionNames(s),hist=[];
- const cur=ex?ex.section:(heads.find(h=>/intro/i.test(h))||heads[0]||'Intro');
- const opts=[['*top','⬆ Pinakataas ng kanta'],...heads.map(h=>[h,h]),...TPRE.filter(p=>!heads.some(h=>secKey(h)===secKey(p))).map(p=>[p,p+' (wala pa sa kanta)'])];
- if(!opts.some(o=>secKey(o[0])===secKey(cur)))opts.push([cur,cur]);
- opts.push(['__c','Iba pa… (i-type)']);
- const sel=opts.find(o=>secKey(o[0])===secKey(cur))[0];
+ const init=ex?(ex.section==='*top'?'Pinakataas':ex.section):(heads.find(h=>/intro/i.test(h))||heads[0]||'Intro');
+ const sug=[...heads,...TPRE.filter(p=>!heads.some(h=>secKey(h)===secKey(p)))];
  ov(`<b style="font-size:17px">🎼 Guitar Tab</b>
- <h4>Ilagay sa (section)</h4><select id="tbS" style="width:100%">${opts.map(o=>`<option value="${esc(o[0])}">${esc(o[1])}</option>`).join('')}</select>
- <input id="tbSc" class="inp" placeholder="Pangalan ng section (hal. Verse 2)" style="display:none" autocomplete="off">
+ <h4>Ilagay sa — i-type ang section</h4><input id="tbS" class="inp" list="tbDL" placeholder="hal. Intro, Verse 1, Chorus, Bridge…" value="${esc(init)}" autocomplete="off" autocapitalize="words" spellcheck="false">
+ <datalist id="tbDL">${sug.map(x=>`<option value="${esc(x)}">`).join('')}</datalist>
+ <div class="chips" id="tbQ">${sug.map(x=>`<button class="qb" data-s="${esc(x)}">${esc(x)}</button>`).join('')}<button class="qb" data-s="Pinakataas">⬆ Pinakataas</button></div>
+ <div class="hint" id="tbSH" style="margin:4px 0 0"></div>
  <h4>Pangalan (optional)</h4><input id="tbL" class="inp" placeholder="hal. Riff 1" value="${esc(ex?ex.label||'':'')}" autocomplete="off">
  <h4>Tab</h4>
  <div class="bar tbtools"><select id="tbK">${TSTR.map((x,i)=>`<option value="${i}">${x} (${TORD[i]})</option>`).join('')}</select><input id="tbF" class="inp" inputmode="numeric" maxlength="2" placeholder="fret" style="width:62px"><button class="red" id="tbNote">＋ Note</button><button id="tbRest">— Rest</button><button id="tbBar">| Bar</button><button id="tbUndo">⌫ Undo</button></div>
@@ -791,14 +794,20 @@ function openTab(id){const s=song();s.tabs=s.tabs||[];const ex=id&&s.tabs.find(t
  <div class="bar"><button id="tbBlank">▦ Blank 6-line</button><button id="tbMeas">＋ Ruler</button></div>
  <h4>Preview</h4><pre class="tabpre" id="tbPrev" style="border:1px solid var(--line);border-radius:9px;background:var(--bg);min-height:40px"></pre>
  <div class="bar" style="margin-top:10px"><button class="red" id="tbSave">✓ I-save</button>${ex?'<button id="tbDel">🗑 Delete</button>':''}<span class="sp"></span><button id="tbC">Isara</button></div>`);
- $('tbS').value=sel;$('tbT').value=ex?ex.text:'';
+ $('tbT').value=ex?ex.text:'';
  const prev=()=>{const v=$('tbT').value;$('tbPrev').innerHTML=v.trim()?v.replace(/\s+$/,'').split('\n').map(tabLineHTML).join('\n'):'<span style="color:var(--mut)">Walang laman</span>'};
  const rows=()=>{const L=$('tbT').value.split('\n'),ix=[];L.forEach((l,i)=>{if(/^[eBGDAE]\|/.test(l)&&ix.length<6)ix.push(i)});return{L,ix}};
  const need=()=>{const r=rows();if(r.ix.length<6){pop('Pindutin muna ang Blank 6-line');return null}return r};
  const commit=r=>{$('tbT').value=r.L.join('\n');prev()};
  const note=tok=>{const r=need();if(!r)return;hist.push($('tbT').value);const k=+$('tbK').value;
   r.ix.forEach((li,j)=>{r.L[li]+=(j===k?tok:'-'.repeat(tok.length))+'-'});commit(r)};
- $('tbS').onchange=()=>{$('tbSc').style.display=$('tbS').value==='__c'?'block':'none'};
+ const secHint=()=>{const v=$('tbS').value.trim(),k=secKey(v);let t='',c='var(--mut)';
+  if(!v)t='';else if(/^(pinakataas|top|\*top)$/i.test(v))t='✓ Ilalagay sa pinakataas ng kanta';
+  else if(heads.some(x=>secKey(x)===k))t='✓ Lalabas sa ilalim ng "# '+heads.find(x=>secKey(x)===k)+'"';
+  else if(k==='intro')t='✓ Walang # Intro sa kanta, kaya ilalagay sa pinakataas';
+  else{t='⚠ Walang section na ito sa kanta kaya lalabas sa dulo. Magdagdag ng "# '+v+'" sa lyrics para ilagay sa tamang pwesto.';c='var(--md)'}
+  $('tbSH').textContent=t;$('tbSH').style.color=c};
+ $('tbS').oninput=secHint;$('tbQ').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('tbS').value=b.dataset.s;secHint()});secHint();
  $('tbT').oninput=prev;
  $('tbBlank').onclick=()=>{const v=$('tbT').value.replace(/\s+$/,'');hist.push($('tbT').value);$('tbT').value=(v?v+'\n\n':'')+TBLANK;prev()};
  $('tbNote').onclick=()=>{const f=$('tbF').value.trim().toLowerCase();if(!/^(\d{1,2}|x)$/.test(f)||(f!=='x'&&+f>24)){pop('Fret: 0 hanggang 24 (o x)');return}note(f);$('tbF').select()};
@@ -812,7 +821,7 @@ function openTab(id){const s=song();s.tabs=s.tabs||[];const ex=id&&s.tabs.find(t
  $('tbMeas').onclick=()=>{const r=need();if(!r)return;hist.push($('tbT').value);r.ix.forEach(li=>r.L[li]+='-------|');commit(r)};
  $('tbC').onclick=closeOv;
  if($('tbDel'))$('tbDel').onclick=()=>askYes('I-delete ang tab na ito?','🗑 Delete',()=>{s.tabs=s.tabs.filter(t=>t.id!==id);persist();render();closeOv();pop('Na-delete ang tab')});
- $('tbSave').onclick=()=>{let sec=$('tbS').value;if(sec==='__c')sec=$('tbSc').value.trim();
+ $('tbSave').onclick=()=>{let sec=$('tbS').value.trim();if(/^(pinakataas|top|\*top)$/i.test(sec))sec='*top';else{const hm=heads.find(x=>secKey(x)===secKey(sec));if(hm)sec=hm}
   const text=$('tbT').value.replace(/\s+$/,'');
   if(!sec){pop('Maglagay ng section');return}if(!text.trim()){pop('Walang laman ang tab');return}
   const label=$('tbL').value.trim();
